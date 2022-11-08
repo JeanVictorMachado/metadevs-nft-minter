@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
+
 import Header from "../../components/header";
-import Footer from "../../components/footer";
 import Fox from "../../components/fox";
+
+import { connectWallet, mintNFT } from "../../utils/interact";
+import { pinIMAGEtoIPFS } from "../../utils/pinata";
+
 import "./style.css";
 
 // Import das funções utilitárias e de interação com o piñata
@@ -13,6 +17,8 @@ const Minter = () => {
   // e informações da carteira do usuário
   const [isConnected, setConnectedStatus] = useState(false);
   const [walletAddress, setWallet] = useState("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
   // Variáveis do Formulário
   const [releaseName, setReleaseName] = useState("");
   const [artwork, setArtwork] = useState("");
@@ -23,26 +29,70 @@ const Minter = () => {
   // Variável na qual iremos concentrar as informações do formulário
   let data = new FormData();
 
-  // Função que é executada assim que o código é executado (ex: quando a página
-  // é aberta no navegador)
-  useEffect(async () => {}, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(async () => {
+    // Validando se tem Matamask instalada
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({
+          method: "eth_accounts",
+        });
+
+        if (!!accounts.length) {
+          setConnectedStatus(true);
+          setWallet(accounts[0]);
+        } else {
+          throw Error;
+        }
+      } catch (err) {
+        setConnectedStatus(false);
+        setStatus("Por favor, conecte sua carteira da Maramask");
+      }
+    } else {
+      setStatus("Por favor, Instale a Metamask em seu navegador");
+    }
+  }, []);
 
   // Função executada quando o usuário clica no botão "conectar carteira"
   // Essa função irá chamar outra função utilitária (connectWallet) e irá
   // definir o status e/ou endereço da carteira retornado (caso tudo ocorra bem)
-  const connectWalletPressed = async () => {};
+  const connectWalletPressed = async () => {
+    const walletResponse = await connectWallet();
+
+    setStatus(walletResponse.status);
+    setConnectedStatus(walletResponse.connectedStatus);
+    !!walletResponse.address && setWallet(walletResponse.address);
+  };
 
   // Função para quando o usuário for realizar o Mint
-  const onMintPressed = async () => {};
+  const onMintPressed = async () => {
+    const { status } = await mintNFT(artist, artwork, releaseName);
+    setStatus(status);
+  };
 
   // Função executada quando o usuário seleciona uma imagem no formulários
-  const artworkHandleChange = async (e) => {};
+  const artworkHandleChange = async (e) => {
+    let selectedFile = e.target.files[0];
+
+    if (selectedFile) {
+      if (types.includes(selectedFile.type)) {
+        data.set("file", selectedFile);
+
+        const pinataResponse = await pinIMAGEtoIPFS(data);
+
+        if (pinataResponse.success) {
+          setArtwork(pinataResponse.pinataUrl);
+          setError("");
+        }
+      } else {
+        setError("Tipo de arquivo não aceito");
+      }
+    }
+  };
 
   return (
     <div id="minter">
       <Header />
-      <br />
-      <br />
       <br />
       <br />
 
@@ -62,7 +112,7 @@ const Minter = () => {
           {/* METAMASK FACE INTERATIVA */}
           <div className="col-md-2 col-sm-12 text-center mt-3 mt-md-0">
             <div id="metamask-face">
-              {/* <Fox followMouse width={100} height={100} /> */}
+              <Fox followMouse width={100} height={100} />
             </div>
           </div>
 
@@ -88,10 +138,11 @@ const Minter = () => {
           <div className="col-2" />
         </div>
 
+        <br />
+
         {/* ALERTAS */}
         {/* Alertas de Status */}
-
-        {/* {status ? (
+        {status && (
           <div className="row mb-4 mt-5 mt-md-4">
             <div className="col-12">
               <div className="alert alert-secondary" role="alert">
@@ -99,20 +150,10 @@ const Minter = () => {
               </div>
             </div>
           </div>
-        ) : null} */}
-        <div className="row mb-4 mt-5 mt-md-4">
-          <div className="col-12">
-            <div className="alert alert-secondary" role="alert">
-              <span className="status">
-                Olá! Eu sou um exemplo de um alerta.
-              </span>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* Alertas de Erros */}
-
-        {/* {error ? (
+        {error && (
           <div className="row mb-4 mt-5 mt-md-4">
             <div className="col-12">
               <div className="alert alert-danger" role="alert">
@@ -120,14 +161,7 @@ const Minter = () => {
               </div>
             </div>
           </div>
-        ) : null} */}
-        <div className="row mb-4 mt-5 mt-md-4">
-          <div className="col-12">
-            <div className="alert alert-danger" role="alert">
-              <span className="status">Olá! Eu sou um exemplo de um erro</span>
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* CARD PRINCIPAL E FORMULÁRIO*/}
         <div className="row">
@@ -161,7 +195,11 @@ const Minter = () => {
                       {artwork ? (
                         <span>
                           <br />
-                          <img className="image-preview" src={artwork} />
+                          <img
+                            className="image-preview"
+                            src={artwork}
+                            alt={artwork}
+                          />
                         </span>
                       ) : null}
 
@@ -270,9 +308,6 @@ const Minter = () => {
           <div className="col-1 col-md-2" />
         </div>
       </div>
-
-      {/* FOOTER */}
-      <Footer />
     </div>
   );
 };
